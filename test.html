@@ -1,0 +1,315 @@
+<html>
+  <head>
+    <script type="text/javascript">
+      var numjs = {};
+
+      numjs.WebGl = {};
+
+      /* Load array data into gl buffers and bind that buffer to a shader
+       * program attribute */
+      numjs.WebGl.programLoadArray = function(gl, glbuffer, arraydata, program) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, glbuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, arraydata, gl.STATIC_DRAW);
+      };
+
+      numjs.WebGl.programBindArray = function(gl, glbuffer, program, attrname, size, type, stride, offset) {
+        if (program.attributes[attrname] == undefined) {
+          console.warn(["Attempted to set an non-existent attribute " + attrname + ".", program]);
+        } else if (glbuffer == undefined) {
+          console.warn(["Attempted to set an attribute " + attrname + " to undefined.", program]);
+          gl.disableVertexAttribArray(program.attributes[attrname]);
+        } else {
+          program.boundAttributes.push(program.attributes[attrname]);
+          gl.bindBuffer(gl.ARRAY_BUFFER, glbuffer);
+          gl.enableVertexAttribArray(program.attributes[attrname]);
+          gl.vertexAttribPointer(program.attributes[attrname], size, type, false, stride || 0, offset || 0);
+        }
+      };
+
+      numjs.WebGl.disableArrays = function(program) {
+        program.boundAttributes.map(function (idx) {
+          program.gl.disableVertexAttribArray(idx);
+        });
+        program.boundAttributes = [];
+      };
+
+      numjs.WebGl.formatError = function(log, src) {
+        var match = log.match(/ERROR: [0-9]*:([0-9]*): (.*)/);
+        var line = parseInt(match[1]);
+        var msg = match[2];
+
+        var lines = src.split('\n');
+        return [].concat(
+          lines.slice(0, line),
+          ['/********************************',
+           ' * ',
+           ' * ' + msg,
+           ' * ',
+           ' ********************************/',
+           ''],
+          lines.slice(line)
+        ).join('\n');
+      };
+
+      numjs.WebGl.createShaderProgramFromSource = function(gl, vertexSrc, fragmentSrc, attr0) {
+        // create vertex shader
+        var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vertexShader, vertexSrc);
+        gl.compileShader(vertexShader);
+
+        if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+          var err = numjs.WebGl.formatError(gl.getShaderInfoLog(vertexShader), vertexSrc);
+          console.error(err);
+          throw err;
+        }
+
+        // create fragment shader
+        var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fragmentShader, fragmentSrc);
+        gl.compileShader(fragmentShader);
+
+        if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+          var err = numjs.WebGl.formatError(gl.getShaderInfoLog(fragmentShader), fragmentSrc);
+          console.error(err);
+          throw err;
+        }
+
+        // link shaders to create our program
+        var program = gl.createProgram();
+        program.gl = gl;
+        program.vertexSrc = vertexSrc;
+        program.fragmentSrc = fragmentSrc;
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+
+        if (attr0 != undefined) {
+          gl.bindAttribLocation(program, 0, attr0);
+        }
+
+        gl.linkProgram(program);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          var err = gl.getProgramInfoLog(program);
+          console.error(err);
+          throw err;
+        }
+
+        gl.useProgram(program);
+
+        // Collect attribute locations to make binding easier in the code using this program
+        program.attributes = {};
+        for (var i = 0; i < gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES); i++) {
+          var name = gl.getActiveAttrib(program, i).name;
+          program.attributes[name] = gl.getAttribLocation(program, name);
+        }
+
+        program.uniforms = {};
+        for (var i = 0; i < gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS); i++) {
+          var name = gl.getActiveUniform(program, i).name;
+          program.uniforms[name] = gl.getUniformLocation(program, name);
+        }
+
+        program.boundAttributes = [];
+
+        return program;
+      };
+
+
+      numjs.isLittleEndian = function() {
+        var arrayBuffer = new ArrayBuffer(2);
+        var uint8Array = new Uint8Array(arrayBuffer);
+        var uint16array = new Uint16Array(arrayBuffer);
+        uint8Array[0] = 0xAA;
+        uint8Array[1] = 0xBB;
+        if (uint16array[0] === 0xBBAA) {
+          return true;
+        } else if (uint16array[0] === 0xAABB) {
+          return false;
+        } else {
+          throw new Error("Broken typed array implementation detected");
+        }
+      };
+
+
+      numjs.shaders = {};
+
+      numjs.shaders.float2color = function() {
+        var handleLittleEndian = '';
+        if (numjs.isLittleEndian()) {
+          handleLittleEndian = `
+            res = vec4(res[3], res[2], res[1], res[0]);
+          `;
+        }
+
+        return `
+          bool isnan(float val) {
+            return (val < 0.0 || 0.0 < val || val == 0.0) ? false : true;
+          }
+
+          bool isinf(float val) {
+            return (val != 0.0 && val * 2.0 == val) ? true : false;
+          }
+
+          vec4 float2color(float value) {
+            float sign = 0.0;
+            float exp = 0.0;
+            vec3 frac = vec3(0.0, 0.0, 0.0);
+
+            if (value < 0.0) {
+              sign = 1.0;
+              value = -value;
+            }
+
+            if (isnan(value)) {
+              exp = 255.0;
+              frac = vec3(64.0, 0.0, 0.0);
+            } else if (isinf(value)) {
+              exp = 255.0;
+              frac = vec3(0.0, 0.0, 0.0);
+            } else if (value == 0.0) {
+              exp = 0.0;
+              frac = vec3(0.0, 0.0, 0.0);
+            } else {
+              exp = floor(log2(value)) + 127.0;
+
+              // while (value < exp2(23.0)) {
+              for (int i = 0; i < 24; i++) {
+                if (value >= exp2(23.0)) break;
+                value = value * 2.0;
+              }
+              value = value - exp2(23.0);
+
+              frac[0] = floor(value / exp2(16.0));
+              value = value - frac[0] * exp2(16.0);
+              frac[1] = floor(value / exp2(8.0));
+              value = value - frac[1] * exp2(8.0);
+              frac[2] = value;
+            }
+
+            vec4 res = vec4(
+              sign * 128.0 + floor(exp / 2.0),
+              mod(exp, 2.0) * 128.0 + frac[0],
+              frac[1],
+              frac[2]
+            ) / vec4(255.0, 255.0, 255.0, 255.0);
+
+            ${handleLittleEndian}
+
+            return res;
+          }
+        `;
+      };
+
+      numjs.shaders.identity = function() {
+        var float2color = numjs.shaders.float2color();
+
+        return `
+          ${float2color}
+
+          attribute float x;
+          attribute float y;
+          attribute float a;
+          uniform float width;
+          uniform float height;
+          varying vec4 res;
+
+          void main () {
+            gl_Position = vec4(2. * x / width - 1., 2. * y / height - 1., -1, 1.);
+            gl_PointSize=1.0;
+            res = float2color(a);
+          }
+        `;
+      };
+
+      numjs.shaders.fragment = function() {
+        return `
+          precision mediump float;
+
+          varying vec4 res;
+          void main() {
+            gl_FragColor = res;
+          }
+        `;
+      };
+
+
+      numjs.Context = function () {
+        var ctx = this;
+
+        ctx.canvas = document.createElement('canvas');
+        ctx.gl = ctx.canvas.getContext('experimental-webgl', {preserveDrawingBuffer: true});
+        ctx.gl.clearColor(1.0, 1.0, 1.0, 1.0);
+      }
+      numjs.Context.prototype.xxx = 1;
+
+
+
+      window.onload = function() {
+        var ctx = new numjs.Context();
+
+        document.body.appendChild(ctx.canvas);
+
+        var program = numjs.WebGl.createShaderProgramFromSource(ctx.gl, numjs.shaders.identity(), numjs.shaders.fragment(), "x");
+
+        var length = 10;
+
+        ctx.canvas.width = length;
+        ctx.canvas.height = 1;
+        ctx.gl.viewport(0, 0, ctx.canvas.width, ctx.canvas.height);
+        program.gl.uniform1f(program.uniforms.width, ctx.canvas.width);
+        program.gl.uniform1f(program.uniforms.height, ctx.canvas.height);
+
+        ctx.gl.clear(ctx.gl.COLOR_BUFFER_BIT);
+
+        var x = new Float32Array(length);
+        var y = new Float32Array(length);
+        var a = new Float32Array(length);
+
+        for (var i = 0; i < length; i++) {
+          x[i] = i;
+          y[i] = 0;
+          a[i] = i * 2 + 1;
+        }
+
+        var glx = ctx.gl.createBuffer();
+        var gly = ctx.gl.createBuffer();
+        var gla = ctx.gl.createBuffer();
+        numjs.WebGl.programLoadArray(ctx.gl, glx, x, program);
+        numjs.WebGl.programLoadArray(ctx.gl, gly, y, program);
+        numjs.WebGl.programLoadArray(ctx.gl, gla, a, program);
+
+        numjs.WebGl.programBindArray(ctx.gl, glx, program, "x", 1,  ctx.gl.FLOAT);
+        numjs.WebGl.programBindArray(ctx.gl, gly, program, "y", 1,  ctx.gl.FLOAT);
+        numjs.WebGl.programBindArray(ctx.gl, gla, program, "a", 1,  ctx.gl.FLOAT);
+
+        ctx.gl.drawArrays(ctx.gl.POINTS, 0, length);
+
+        numjs.WebGl.disableArrays(program);
+
+
+        function print(x) {
+          var res = document.createElement('div');
+          document.body.appendChild(res);
+          res.innerHTML = x;
+        }
+
+        var pixels = new Uint8Array(4 * length);
+        ctx.gl.readPixels(0, 0, length, 1, ctx.gl.RGBA, ctx.gl.UNSIGNED_BYTE, pixels);
+        data = new Float32Array(pixels.buffer);
+
+        print(a.toString() + " == " + data.toString());
+      }
+    </script>
+
+    <style>
+     body {
+       background: green;
+     }
+     canvas {
+       border: 2px solid red;
+     }
+    </style>
+  </head>
+  <body>
+  </body>
+</html>
