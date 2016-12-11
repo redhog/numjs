@@ -364,6 +364,30 @@
 
         print("range(5) = " + ctx.range(5));
         print("identity(range(5)) = " + ctx.identity(ctx.range(5)));
+
+        var items = 10000000;
+        var iters = 10;
+        var start_glsl = performance.now();
+        for (var i = 0; i < iters; i++) {
+          ctx.range(items);
+        }
+        var end_glsl = performance.now();
+        len_glsl = end_glsl - start_glsl;
+
+
+        var start_js = performance.now();
+        for (var i = 0; i < iters; i++) {
+          var a = new Float32Array(items);
+          for (var j = 0; j < a.length; j++) {
+            a[j] = j;
+          }
+        }
+        var end_js = performance.now();
+        len_js = end_js - start_js;
+
+        print("range(" + items.toString() + ") executed " + iters.toString() + " times:");
+        print("  glsl: " + len_glsl.toString());
+        print("  js: " + len_js.toString());
       }
     </script>
 
