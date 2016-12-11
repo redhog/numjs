@@ -199,22 +199,22 @@
         `;
       };
 
-      numjs.shaders.vertex = function(expr, interpolate) {
-        var header = 'varying float res;';
-        var res = `${expr}`
-        if (!interpolate) {
-          header = numjs.shaders.float2color() + 'varying vec4 res;';
-          res = `float2color(${expr})`
-        }
+      numjs.shaders.vertex = function(expr, header) {
+        var float2color = numjs.shaders.float2color();
+
+        header = header || "";
 
         return `
-          ${header}
+          ${float2color}
+
+          varying vec4 res;
 
           attribute float x;
           attribute float y;
-          attribute float a;
           uniform float width;
           uniform float height;
+
+          ${header}
 
           void main () {
             gl_Position = vec4(
@@ -222,27 +222,19 @@
               2. * (y + .5) / height - 1.,
               -1, 1.);
             gl_PointSize=1.0;
-            res = ${res};
+            res = float2color(${expr});
           }
         `;
       };
 
-      numjs.shaders.fragment = function(interpolate) {
-        var header = 'varying vec4 res;';
-        var expr = 'res';
-
-        if (interpolate) {
-          var header = numjs.shaders.float2color() + 'varying float res;';
-          expr = 'float2color(res)';
-        }
-
+      numjs.shaders.fragment = function() {
         return `
           precision mediump float;
 
-          ${header}
+          varying vec4 res;
 
           void main() {
-            gl_FragColor = ${expr};
+            gl_FragColor = res;
           }
         `;
       };
@@ -287,7 +279,7 @@
         self.gl.clearColor(1.0, 1.0, .0, 1.0);
         self.programs = {};
         self.programs.range = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.range_fragment(), "x");
-        self.programs.identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a', false), numjs.shaders.fragment(false), "x");
+        self.programs.identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a', 'attribute float a;'), numjs.shaders.fragment(), "x");
       };
       numjs.Context.prototype.setOutput = function (name, width, height) {
         var self = this;
