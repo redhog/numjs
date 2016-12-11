@@ -248,6 +248,37 @@
       };
 
 
+      numjs.shaders.range_vertex = function(expr) {
+        return `
+          attribute float x;
+          attribute float y;
+          uniform float width;
+          uniform float height;
+
+          void main () {
+            gl_Position = vec4(
+              2. * (x + .5) / width - 1.,
+              2. * (y + .5) / height - 1.,
+              -1, 1.);
+            gl_PointSize=1.0;
+          }
+        `;
+      };
+
+      numjs.shaders.range_fragment = function() {
+        var float2color = numjs.shaders.float2color();
+
+        return `
+          precision mediump float;
+
+          ${float2color}
+
+          void main() {
+            gl_FragColor = float2color(gl_FragCoord.x - .5);
+          }
+        `;
+      };
+
       numjs.Context = function () {
         var self = this;
 
@@ -255,7 +286,7 @@
         self.gl = self.canvas.getContext('experimental-webgl', {preserveDrawingBuffer: true, antialias: false});
         self.gl.clearColor(1.0, 1.0, .0, 1.0);
         self.programs = {};
-        self.programs.range = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a', true), numjs.shaders.fragment(true), "x");
+        self.programs.range = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.range_fragment(), "x");
         self.programs.identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a', false), numjs.shaders.fragment(false), "x");
       };
       numjs.Context.prototype.setOutput = function (name, width, height) {
@@ -287,18 +318,14 @@ var height = h || self.canvas.height;
 
         var x = new Float32Array(2);
         var y = new Float32Array(2);
-        var a = new Float32Array(2);
 
         x[0] = 1;
         y[0] = 1;
-        a[0] = 0;
         x[1] = 1 + length;
         y[1] = 1;
-        a[1] = 1;
 
         program.loadArray("x", x, 1,  self.gl.FLOAT);
         program.loadArray("y", y, 1,  self.gl.FLOAT);
-        program.loadArray("a", a, 1,  self.gl.FLOAT);
 
         self.gl.drawArrays(self.gl.LINES, 0, 2);
 
