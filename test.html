@@ -303,8 +303,8 @@
       };
       numjs.Context.prototype.getOutput = function(x, y, w, h) {
         var self = this;
-var width = w || self.canvas.width;
-var height = h || self.canvas.height;
+        var width = w || self.canvas.width;
+        var height = h || self.canvas.height;
         var pixels = new Uint8Array(4 * width * height);
         self.gl.readPixels(x || 0, y || 0, width, height, self.gl.RGBA, self.gl.UNSIGNED_BYTE, pixels);
         return new Float32Array(pixels.buffer);
