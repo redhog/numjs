@@ -312,17 +312,15 @@ var height = h || self.canvas.height;
       numjs.Context.prototype.range = function (length) {
         var self = this;
 
-
-//        var program = self.setOutput("range", length, 1);
-        var program = self.setOutput("range", 20, 20);
+        var program = self.setOutput("range", length, 1);
 
         var x = new Float32Array(2);
         var y = new Float32Array(2);
 
-        x[0] = 1;
-        y[0] = 1;
-        x[1] = 1 + length;
-        y[1] = 1;
+        x[0] = 0;
+        y[0] = 0;
+        x[1] = length;
+        y[1] = 0;
 
         program.loadArray("x", x, 1,  self.gl.FLOAT);
         program.loadArray("y", y, 1,  self.gl.FLOAT);
@@ -331,24 +329,15 @@ var height = h || self.canvas.height;
 
         program.disableArrays(program);
 
-        res = self.getOutput(1, 1, length, 1);
-print("XXXX: " +  res[res.length - 1].toString())
-        return self.getOutput(1, 1, length, 1);
+        return self.getOutput(0, 0, length, 1);
       }
-      numjs.Context.prototype.identity = function (length) {
+      numjs.Context.prototype.identity = function (a) {
         var self = this;
 
-        var program = self.setOutput("identity", length, 1);
+        var program = self.setOutput("identity", a.length, 1);
 
-        var x = new Float32Array(length);
-        var y = new Float32Array(length);
-        var a = new Float32Array(length);
-
-        for (var i = 0; i < length; i++) {
-          x[i] = i;
-          y[i] = 0;
-          a[i] = i * 2 + 1;
-        }
+        var x = self.range(a.length);
+        var y = new Float32Array(a.length); // 0:oes
 
         program.loadArray("x", x, 1,  self.gl.FLOAT);
         program.loadArray("y", y, 1,  self.gl.FLOAT);
@@ -374,7 +363,7 @@ print("XXXX: " +  res[res.length - 1].toString())
         document.body.appendChild(ctx.canvas);
 
         print("range(5) = " + ctx.range(5));
-        // print("identity(10) = " + ctx.identity(10));
+        print("identity(range(5)) = " + ctx.identity(ctx.range(5)));
       }
     </script>
 
