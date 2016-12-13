@@ -280,6 +280,7 @@
         self.programs = {};
         self.programs.range = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.range_fragment(), "x");
         self.programs.identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a', 'attribute float a;'), numjs.shaders.fragment(), "x");
+        self.programs.mult = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a * b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
       };
       numjs.Context.prototype.setOutput = function (name, width, height) {
         var self = this;
@@ -323,25 +324,38 @@
 
         return self.getOutput(0, 0, length, 1);
       }
-      numjs.Context.prototype.identity = function (a) {
+
+      numjs.Context.prototype.itemwizeOp = function(name, args) {
         var self = this;
+        args = Array.prototype.slice.call(arguments, 1);
+        var length = args[0].length;
 
-        var program = self.setOutput("identity", a.length, 1);
+        var x = self.range(length);
+        var y = new Float32Array(length); // 0:oes
 
-        var x = self.range(a.length);
-        var y = new Float32Array(a.length); // 0:oes
+        var program = self.setOutput(name, length, 1);
+        var argnames = Object.keys(program.attributes).filter(function (key) { return key != 'x' && key != 'y'; });
 
         program.loadArray("x", x, 1,  self.gl.FLOAT);
         program.loadArray("y", y, 1,  self.gl.FLOAT);
-        program.loadArray("a", a, 1,  self.gl.FLOAT);
 
+        for (var i = 0; i < args.length; i++) {
+          program.loadArray(argnames[i], args[i], 1,  self.gl.FLOAT);
+        }
         self.gl.drawArrays(self.gl.POINTS, 0, length);
 
         program.disableArrays();
 
         return self.getOutput();
       }
-
+      numjs.Context.prototype.identity = function() {
+        var self = this;
+        return self.itemwizeOp.apply(self, ['identity'].concat([].slice.call(arguments)));
+      }
+      numjs.Context.prototype.mult = function() {
+        var self = this;
+        return self.itemwizeOp.apply(self, ['mult'].concat([].slice.call(arguments)));
+      }
 
       function print(x) {
         var res = document.createElement('div');
@@ -350,13 +364,15 @@
       }
 
       window.onload = function() {
-        var ctx = new numjs.Context();
+        ctx = new numjs.Context();
 
         document.body.appendChild(ctx.canvas);
 
         print("range(5) = " + ctx.range(5));
         print("identity(range(5)) = " + ctx.identity(ctx.range(5)));
+        print("mult(range(5), range(5)) = " + ctx.mult(ctx.range(5), ctx.range(5)));
 
+/*
         var items = 10000000;
         var iters = 10;
         var start_glsl = performance.now();
@@ -380,6 +396,8 @@
         print("range(" + items.toString() + ") executed " + iters.toString() + " times:");
         print("  glsl: " + len_glsl.toString());
         print("  js: " + len_js.toString());
+*/
+
       }
     </script>
 
