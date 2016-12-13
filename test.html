@@ -280,7 +280,11 @@
         self.programs = {};
         self.programs.range = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.range_fragment(), "x");
         self.programs.identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a', 'attribute float a;'), numjs.shaders.fragment(), "x");
+
+        self.programs.add = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a + b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
+        self.programs.sub = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a - b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
         self.programs.mult = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a * b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
+        self.programs.div = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a / b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
       };
       numjs.Context.prototype.setOutput = function (name, width, height) {
         var self = this;
@@ -352,9 +356,21 @@
         var self = this;
         return self.itemwizeOp.apply(self, ['identity'].concat([].slice.call(arguments)));
       }
+      numjs.Context.prototype.add = function() {
+        var self = this;
+        return self.itemwizeOp.apply(self, ['add'].concat([].slice.call(arguments)));
+      }
+      numjs.Context.prototype.sub = function() {
+        var self = this;
+        return self.itemwizeOp.apply(self, ['sub'].concat([].slice.call(arguments)));
+      }
       numjs.Context.prototype.mult = function() {
         var self = this;
         return self.itemwizeOp.apply(self, ['mult'].concat([].slice.call(arguments)));
+      }
+      numjs.Context.prototype.div = function() {
+        var self = this;
+        return self.itemwizeOp.apply(self, ['div'].concat([].slice.call(arguments)));
       }
 
       function print(x) {
