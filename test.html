@@ -285,6 +285,8 @@
         self.programs.sub = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a - b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
         self.programs.mult = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a * b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
         self.programs.div = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a / b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
+
+        self.programs.sum = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a[0] + a[1] + a[2] + a[3]', 'attribute vec4 a;'), numjs.shaders.fragment(), "x");
       };
       numjs.Context.prototype.setOutput = function (name, width, height) {
         var self = this;
@@ -373,27 +375,59 @@
         return self.itemwizeOp.apply(self, ['div'].concat([].slice.call(arguments)));
       }
 
+      numjs.Context.prototype.sum = function(a) {
+        var self = this;
+        var length;
+        while (a.length > 1000) {
+          length = a.length;
+
+          if (length % 4 != 0) {
+            var diff = length % 4;
+
+            if (first) a = Float32Array(a);
+            a1 = new Float32Array(a.buffer, 0, length - diff);
+
+            for (var i = a1.length; i < a.length; i++) {
+              a1[a1.length - 1] += a[i];
+            }
+            a = a1;
+
+            length = length - diff;
+          }
+
+          var length = length / 4;
+
+          var x = self.range(length);
+          var y = new Float32Array(length); // 0:oes
+
+          var program = self.setOutput('sum', length, 1);
+
+          program.loadArray("x", x, 1,  self.gl.FLOAT);
+          program.loadArray("y", y, 1,  self.gl.FLOAT);
+
+          program.loadArray('a', a, 4,  self.gl.FLOAT);
+
+          self.gl.drawArrays(self.gl.POINTS, 0, length);
+
+          program.disableArrays();
+
+          a = self.getOutput();
+          first = false;
+        }
+
+        return a.reduce(function (a, b) { return a + b; });
+      }
+
       function print(x) {
         var res = document.createElement('div');
         document.body.appendChild(res);
         res.innerHTML = x;
       }
 
-      window.onload = function() {
-        ctx = new numjs.Context();
-
-        document.body.appendChild(ctx.canvas);
-
-        print("range(5) = " + ctx.range(5));
-        print("identity(range(5)) = " + ctx.identity(ctx.range(5)));
-        print("mult(range(5), range(5)) = " + ctx.mult(ctx.range(5), ctx.range(5)));
-
-/*
-        var items = 10000000;
-        var iters = 10;
+      function compare(description, glslfn, jsfn, iters) {
         var start_glsl = performance.now();
         for (var i = 0; i < iters; i++) {
-          ctx.range(items);
+          glslfn();
         }
         var end_glsl = performance.now();
         len_glsl = end_glsl - start_glsl;
@@ -401,17 +435,51 @@
 
         var start_js = performance.now();
         for (var i = 0; i < iters; i++) {
-          var a = new Float32Array(items);
-          for (var j = 0; j < a.length; j++) {
-            a[j] = j;
-          }
+          jsfn();
         }
         var end_js = performance.now();
         len_js = end_js - start_js;
 
-        print("range(" + items.toString() + ") executed " + iters.toString() + " times:");
+        print(description + " executed " + iters.toString() + " times:");
         print("  glsl: " + len_glsl.toString());
         print("  js: " + len_js.toString());
+      }
+
+      window.onload = function() {
+        ctx = new numjs.Context();
+
+        document.body.appendChild(ctx.canvas);
+
+/*
+        print("range(8) = " + ctx.range(8));
+        print("sum(range(8)) = " + ctx.sum(ctx.range(100)));
+        print("range(5) = " + ctx.range(5));
+        print("identity(range(5)) = " + ctx.identity(ctx.range(5)));
+        print("mult(range(5), range(5)) = " + ctx.mult(ctx.range(5), ctx.range(5)));
+
+*/
+
+        var items = 1000000;
+
+        compare(
+          "sum(range(" + items.toString() + "))",
+          function () { ctx.sum(ctx.range(items)); },
+          function () { ctx.range(items).reduce(function (a, b) { return a + b; }); },
+          10);
+
+/*
+        var items = 10000000;
+
+        compare(
+          "range(" + items.toString() + ")",
+          function () { ctx.range(items); },
+          function () { 
+            var a = new Float32Array(items);
+            for (var j = 0; j < a.length; j++) {
+              a[j] = j;
+            }
+          },
+          10);
 */
 
       }
