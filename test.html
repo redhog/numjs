@@ -389,32 +389,29 @@
         self.usage++;
       };
       
-
-      numjs.Context.prototype.texture_identity = function (value) {
+      numjs.Context.prototype.texture_identity = function (value, outputTexture) {
         var self = this;
 
-        var program = self.setOutput("texture_identity", value.length, 1);
+        return self.render("texture_identity", function (program) {
+          self.gl.activeTexture(self.gl.TEXTURE0);
+          self.gl.bindTexture(self.gl.TEXTURE_2D, value.value);
+          self.gl.uniform1i(program.uniforms.a, 0); // Bind sampler "a" to TEXTURE0
 
-        self.gl.activeTexture(self.gl.TEXTURE0);
-        self.gl.bindTexture(self.gl.TEXTURE_2D, value.value);
-        self.gl.uniform1i(program.uniforms.a, 0); // Bind sampler "a" to TEXTURE0
+          var x = new Float32Array(2);
+          var y = new Float32Array(2);
 
-        var x = new Float32Array(2);
-        var y = new Float32Array(2);
+          x[0] = 0;
+          y[0] = 0;
+          x[1] = value.length;
+          y[1] = 0;
 
-        x[0] = 0;
-        y[0] = 0;
-        x[1] = value.length;
-        y[1] = 0;
+          program.loadArray("x", x, 1,  self.gl.FLOAT);
+          program.loadArray("y", y, 1,  self.gl.FLOAT);
 
-        program.loadArray("x", x, 1,  self.gl.FLOAT);
-        program.loadArray("y", y, 1,  self.gl.FLOAT);
+          self.gl.drawArrays(self.gl.LINES, 0, 2);
 
-        self.gl.drawArrays(self.gl.LINES, 0, 2);
-
-        program.disableArrays(program);
-
-        return self.getOutput(0, 0, value.length, 1);
+          program.disableArrays(program);
+        }, value.length, 1, outputTexture);
       };
 
       numjs.Context.prototype.render = function (name, drawFn, width, height, outputTexture) {
@@ -429,7 +426,7 @@
         self.gl.clear(self.gl.COLOR_BUFFER_BIT);
 
         if (outputTexture == undefined) {
-          self.gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+          self.gl.bindFramebuffer(self.gl.FRAMEBUFFER,null);
         } else {
           if (outputTexture == true) {
             outputTexture = self.gl.createTexture();
