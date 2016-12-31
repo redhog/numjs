@@ -344,19 +344,59 @@
         self.programs.texture_identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.texture_identity_fragment(), "x");
       };
 
-      numjs.Context.prototype.texture_identity = function (arr) {
+      numjs.Context.prototype.createValue = function (value) {
+        return new this.Value(this, value);
+      };
+
+      numjs.Context.prototype.Value = function (ctx, value, length) {
+        var self = this;
+        var gl = ctx.gl;
+        self.ctx = ctx;
+        self.usage = 1;
+
+        if (value.constructor = Float32Array) {
+          value = value.buffer;
+        }
+        if (value.constructor == WebGLTexture) {
+          self.value = value;
+        } else if (value.constructor = ArrayBuffer) {
+          self.buffer = value;
+          self.value = gl.createTexture();
+          length = value.byteLength / 4;
+
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, self.value);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, length, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(value));
+
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,     gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S,     gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        } else {
+          throw "Value must be texture, Float32Array or ArrayBuffer";
+        }
+        self.length = length;
+      };
+      numjs.Context.prototype.Value.prototype.dereference = function() {
+        var self = this;
+        self.usage--;
+        if (self.usage <= 0) {
+          self.ctx.gl.deleteTexture(self.value);
+        }
+      };
+      numjs.Context.prototype.Value.prototype.reference = function() {
+        var self = this;
+        self.usage++;
+      };
+      
+
+      numjs.Context.prototype.texture_identity = function (value) {
         var self = this;
 
-        var program = self.setOutput("texture_identity", arr.length, 1);
-        var texture = self.gl.createTexture();
-        self.gl.activeTexture(self.gl.TEXTURE0);
-        self.gl.bindTexture(self.gl.TEXTURE_2D, texture);
-        self.gl.texImage2D(self.gl.TEXTURE_2D, 0, self.gl.RGBA, arr.length, 1, 0, self.gl.RGBA, self.gl.UNSIGNED_BYTE, new Uint8Array(arr.buffer));
+        var program = self.setOutput("texture_identity", value.length, 1);
 
-        self.gl.texParameteri(self.gl.TEXTURE_2D, self.gl.TEXTURE_WRAP_T,     self.gl.CLAMP_TO_EDGE);
-        self.gl.texParameteri(self.gl.TEXTURE_2D, self.gl.TEXTURE_WRAP_S,     self.gl.CLAMP_TO_EDGE);
-        self.gl.texParameteri(self.gl.TEXTURE_2D, self.gl.TEXTURE_MAG_FILTER, self.gl.LINEAR);
-        self.gl.texParameteri(self.gl.TEXTURE_2D, self.gl.TEXTURE_MIN_FILTER, self.gl.LINEAR);
+        self.gl.activeTexture(self.gl.TEXTURE0);
+        self.gl.bindTexture(self.gl.TEXTURE_2D, value.value);
         self.gl.uniform1i(program.uniforms.a, 0); // Bind sampler "a" to TEXTURE0
 
         var x = new Float32Array(2);
@@ -364,7 +404,7 @@
 
         x[0] = 0;
         y[0] = 0;
-        x[1] = arr.length;
+        x[1] = value.length;
         y[1] = 0;
 
         program.loadArray("x", x, 1,  self.gl.FLOAT);
@@ -374,10 +414,10 @@
 
         program.disableArrays(program);
 
-        return self.getOutput(0, 0, arr.length, 1);
+        return self.getOutput(0, 0, value.length, 1);
       };
 
-      numjs.Context.prototype.setOutput = function (name, width, height) {
+      numjs.Context.prototype.render = function (name, drawFn, width, height, outputTexture) {
         var self = this;
         var program = self.programs[name];
         self.canvas.width = width;
@@ -387,6 +427,52 @@
         program.gl.uniform1f(program.uniforms.width, self.canvas.width);
         program.gl.uniform1f(program.uniforms.height, self.canvas.height);
         self.gl.clear(self.gl.COLOR_BUFFER_BIT);
+
+        if (outputTexture == undefined) {
+          self.gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+        } else {
+          if (outputTexture == true) {
+            outputTexture = self.gl.createTexture();
+          }
+          if (self.framebuffer == undefined) {
+            self.framebuffer = self.gl.createFramebuffer();
+          }
+          self.gl.bindFramebuffer(self.gl.FRAMEBUFFER, self.framebuffer);
+          self.gl.framebufferTexture2D(self.gl.FRAMEBUFFER, self.gl.COLOR_ATTACHMENT0, self.gl.TEXTURE_2D, outputTexture, 0);
+        }
+
+        drawFn(program);
+
+        if (outputTexture == undefined) {
+          var pixels = new Uint8Array(4 * width * height);
+          self.gl.readPixels(0, 0, width, height, self.gl.RGBA, self.gl.UNSIGNED_BYTE, pixels);
+          return new Float32Array(pixels.buffer);
+        } else {
+          return outputTexture;
+        }
+      };
+
+
+      numjs.Context.prototype.setOutput = function (name, width, height, outputTexture) {
+        var self = this;
+        var program = self.programs[name];
+        self.canvas.width = width;
+        self.canvas.height = height;
+        self.gl.useProgram(program);
+        self.gl.viewport(0, 0, self.canvas.width, self.canvas.height);
+        program.gl.uniform1f(program.uniforms.width, self.canvas.width);
+        program.gl.uniform1f(program.uniforms.height, self.canvas.height);
+        self.gl.clear(self.gl.COLOR_BUFFER_BIT);
+
+        if (outputTexture == undefined) {
+          self.gl.bindFramebuffer(self.gl.FRAMEBUFFER,null);
+        } else {
+          if (self.framebuffer == undefined) {
+            self.framebuffer = self.gl.createFramebuffer();
+          }
+          self.gl.bindFramebuffer(self.gl.FRAMEBUFFER, self.framebuffer);
+          self.gl.framebufferTexture2D(self.gl.FRAMEBUFFER, self.gl.COLOR_ATTACHMENT0, self.gl.TEXTURE_2D, outputTexture, 0);
+        }
         return program;
       };
       numjs.Context.prototype.getOutput = function(x, y, w, h) {
@@ -539,7 +625,7 @@
 
         document.body.appendChild(ctx.canvas);
 
-        print ("texture_identity(range(5)) = " + ctx.texture_identity(ctx.range(5)));
+        print ("texture_identity(range(5)) = " + ctx.texture_identity(ctx.createValue(ctx.range(5))));
 
 /*
         print("range(8) = " + ctx.range(8));
