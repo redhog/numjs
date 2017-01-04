@@ -1,5 +1,6 @@
 <html>
   <head>
+    <script src="bower_components/cpp.js/cpp.js"></script>
     <script type="text/javascript">
       var numjs = {};
 
@@ -23,7 +24,14 @@
         ).join('\n');
       };
 
-      numjs.WebGl.createShaderProgramFromSource = function(gl, vertexSrc, fragmentSrc, attr0) {
+      var cpp_js_glsl = cpp_js({});
+
+      numjs.WebGl.createShaderProgramFromSource = function(gl, vertexSrc, fragmentSrc, attr0, header) {
+        if (header) cpp_js_glsl.run(header);
+        vertexSrc = cpp_js_glsl.run(vertexSrc);
+        fragmentSrc = cpp_js_glsl.run(fragmentSrc);
+        cpp_js_glsl.clear();
+
         // create vertex shader
         var vertexShader = gl.createShader(gl.VERTEX_SHADER);
         gl.shaderSource(vertexShader, vertexSrc);
@@ -109,6 +117,29 @@
           program.boundAttributes = [];
         };
 
+        program.bindUniform = function (name, value) {
+          // FIXME: Use type and size of uniform instead...
+          if (typeof(value) == "number") {
+            program.gl.uniform1f(program.uniforms[name], value);
+          } else if (typeof(value) == "object") {
+            if (value.constructor == Float32Array) {
+              program.gl["uniform" + value.length + "fv"]( program.uniforms[name], value);
+            } else if (value.constructor == Int32Array) {
+              program.gl["uniform" + value.length + "iv"]( program.uniforms[name], value);
+            }
+          }
+        };
+
+        program.textureCounter = 0;
+        program.bindTexture = function (name, texture) {
+          var id = program.textureCounter++;
+          program.gl.activeTexture(program.gl["TEXTURE" + id]);
+          program.gl.bindTexture(program.gl.TEXTURE_2D, self.value);
+          program.gl.uniform1i(program.uniforms[name], id);
+        }
+        program.resetTextures = function () {
+          program.textureCounter = 0;
+        }
 
         return program;
       };
@@ -323,6 +354,33 @@
         `;
       };
 
+      numjs.shaders.texture_expr_fragment = function(expr, header) {
+        var float2color = numjs.shaders.float2color();
+        var color2float = numjs.shaders.color2float();
+
+        return `
+#define _(name, coord) _param(name, name##_size, coord)
+
+          precision highp float;
+
+          ${float2color}
+          ${color2float}
+          ${header}
+
+          uniform float width;
+          uniform float height;
+
+          float _param(sampler2D samp, vec2 size, vec2 coord) {
+            return color2float(texture2D(samp, coord + vec2(.5, .5) / size, 0.));
+          }
+
+          void main() {
+            vec2 coord = (vec2(gl_FragCoord.x, gl_FragCoord.y) - vec2(.5, .5)) / vec2(width, height);
+            gl_FragColor = float2color(${expr});
+          }
+        `;
+      };
+
       numjs.Context = function () {
         var self = this;
 
@@ -340,19 +398,21 @@
 
         self.programs.sum = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a[0] + a[1] + a[2] + a[3]', 'attribute vec4 a;'), numjs.shaders.fragment(), "x");
 
+//        self.programs.texture_identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.texture_identity_fragment(), "x");
 
-        self.programs.texture_identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.texture_identity_fragment(), "x");
+        self.programs.texture_identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.texture_expr_fragment("_(a, coord)", "uniform sampler2D a; uniform vec2 a_size;"), "x");
       };
 
-      numjs.Context.prototype.createValue = function (value) {
-        return new this.Value(this, value);
+      numjs.Context.prototype.createValue = function (value, args) {
+        return new this.Value(this, value, args);
       };
 
-      numjs.Context.prototype.Value = function (ctx, value, length) {
+      numjs.Context.prototype.Value = function (ctx, value, args) {
         var self = this;
         var gl = ctx.gl;
         self.ctx = ctx;
         self.usage = 1;
+        self.args = args || {};
 
         if (value.constructor = Float32Array) {
           value = value.buffer;
@@ -360,9 +420,12 @@
         if (value.constructor == WebGLTexture) {
           self.value = value;
         } else if (value.constructor = ArrayBuffer) {
+          var length = value.byteLength / 4;
           self.buffer = value;
           self.value = gl.createTexture();
-          length = value.byteLength / 4;
+          if (!self.args.size) { 
+            self.args.size = Float32Array.from([length, 1]);
+          }
 
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, self.value);
@@ -375,7 +438,6 @@
         } else {
           throw "Value must be texture, Float32Array or ArrayBuffer";
         }
-        self.length = length;
       };
       numjs.Context.prototype.Value.prototype.dereference = function() {
         var self = this;
@@ -388,30 +450,33 @@
         var self = this;
         self.usage++;
       };
+      numjs.Context.prototype.Value.prototype.bind = function(program, name) {
+        var self = this;
+        program.bindTexture(name, self.value);
+        for (var attr in self.args) {
+          program.bindUniform(name + "_" + attr, self.args[attr]);
+        }
+      };
       
       numjs.Context.prototype.texture_identity = function (value, outputTexture) {
         var self = this;
 
         return self.render("texture_identity", function (program) {
-          self.gl.activeTexture(self.gl.TEXTURE0);
-          self.gl.bindTexture(self.gl.TEXTURE_2D, value.value);
-          self.gl.uniform1i(program.uniforms.a, 0); // Bind sampler "a" to TEXTURE0
+          value.bind(program, "a");
 
           var x = new Float32Array(2);
           var y = new Float32Array(2);
 
           x[0] = 0;
           y[0] = 0;
-          x[1] = value.length;
+          x[1] = value.args.size[0];
           y[1] = 0;
 
           program.loadArray("x", x, 1,  self.gl.FLOAT);
           program.loadArray("y", y, 1,  self.gl.FLOAT);
 
           self.gl.drawArrays(self.gl.LINES, 0, 2);
-
-          program.disableArrays(program);
-        }, value.length, 1, outputTexture);
+        }, value.args.size[0], 1, outputTexture);
       };
 
       numjs.Context.prototype.render = function (name, drawFn, width, height, outputTexture) {
@@ -439,6 +504,9 @@
         }
 
         drawFn(program);
+
+        program.disableArrays();
+        program.resetTextures();
 
         if (outputTexture == undefined) {
           var pixels = new Uint8Array(4 * width * height);
