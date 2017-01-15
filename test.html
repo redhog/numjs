@@ -134,7 +134,7 @@
         program.bindTexture = function (name, texture) {
           var id = program.textureCounter++;
           program.gl.activeTexture(program.gl["TEXTURE" + id]);
-          program.gl.bindTexture(program.gl.TEXTURE_2D, self.value);
+          program.gl.bindTexture(program.gl.TEXTURE_2D, texture);
           program.gl.uniform1i(program.uniforms[name], id);
         }
         program.resetTextures = function () {
@@ -221,7 +221,7 @@
               mod(exp, 2.0) * 128.0 + frac[0],
               frac[1],
               frac[2]
-            ) / vec4(255.0, 255.0, 255.0, 255.0);
+            ) / 255.;
 
             ${handleLittleEndian}
 
@@ -241,6 +241,8 @@
         return `
           float color2float(vec4 value) {
             ${handleLittleEndian}
+
+            value = value * 255.;
 
             float sign = floor(value[0] / 128.0) == 1. ? -1. : 1.;
             float exp = mod(value[0], 128.0) * 2.0 + floor(value[1] / 128.0);
@@ -371,11 +373,11 @@
           uniform float height;
 
           float _param(sampler2D samp, vec2 size, vec2 coord) {
-            return color2float(texture2D(samp, coord + vec2(.5, .5) / size, 0.));
+            return color2float(texture2D(samp, (coord + .5) / size, 0.));
           }
 
           void main() {
-            vec2 coord = (vec2(gl_FragCoord.x, gl_FragCoord.y) - vec2(.5, .5)) / vec2(width, height);
+            vec2 coord = vec2(gl_FragCoord.x, gl_FragCoord.y) - .5;
             gl_FragColor = float2color(${expr});
           }
         `;
@@ -690,7 +692,7 @@
 
         document.body.appendChild(ctx.canvas);
 
-        print ("texture_identity(range(5)) = " + ctx.texture_identity(ctx.createValue(ctx.range(5))));
+        print ("texture_identity(range(5)) = " + ctx.texture_identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]))));
 
 /*
         print("range(8) = " + ctx.range(8));

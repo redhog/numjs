@@ -51,6 +51,8 @@ def bits2float(bits):
     exp = (bits[0] % 128.0) * 2.0 + numpy.floor(bits[1] / 128.0)
     frac = (bits[1] % 128.0) * F(2**16) + bits[2] * F(2**8) + bits[3]
 
+    print "exp=%s, frac=%s" % (exp, frac)
+
     if exp == 255.0 and frac > 0.0:
         return numpy.NaN
     elif exp == 255.0 and frac == 0.0:
