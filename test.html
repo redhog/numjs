@@ -263,47 +263,6 @@
         `;
       };
 
-      numjs.shaders.vertex = function(expr, header) {
-        var float2color = numjs.shaders.float2color();
-
-        header = header || "";
-
-        return `
-          ${float2color}
-
-          varying vec4 res;
-
-          attribute float x;
-          attribute float y;
-          uniform float width;
-          uniform float height;
-
-          ${header}
-
-          void main () {
-            gl_Position = vec4(
-              2. * (x + .5) / width - 1.,
-              2. * (y + .5) / height - 1.,
-              -1, 1.);
-            gl_PointSize=1.0;
-            res = float2color(${expr});
-          }
-        `;
-      };
-
-      numjs.shaders.fragment = function() {
-        return `
-          precision mediump float;
-
-          varying vec4 res;
-
-          void main() {
-            gl_FragColor = res;
-          }
-        `;
-      };
-
-
       numjs.shaders.range_vertex = function(expr) {
         return `
           attribute float x;
@@ -335,32 +294,12 @@
         `;
       };
 
-      numjs.shaders.texture_identity_fragment = function() {
-        var float2color = numjs.shaders.float2color();
-        var color2float = numjs.shaders.color2float();
-
-        return `
-          precision highp float;
-
-          ${float2color}
-          ${color2float}
-
-          uniform sampler2D a;
-          uniform float width;
-          uniform float height;
-
-          void main() {
-            vec2 coord = vec2(gl_FragCoord.x / width, gl_FragCoord.y / height);
-            gl_FragColor = texture2D(a, coord, 0.);
-          }
-        `;
-      };
-
       numjs.shaders.texture_expr_fragment = function(expr, header) {
         var float2color = numjs.shaders.float2color();
         var color2float = numjs.shaders.color2float();
 
         return `
+#define _decl(name) uniform sampler2D name; uniform vec2 name##_size
 #define _(name, coord) _param(name, name##_size, coord)
 
           precision highp float;
@@ -391,18 +330,13 @@
         self.gl.clearColor(.5, .5, .5, 1.0);
         self.programs = {};
         self.programs.range = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.range_fragment(), "x");
-        self.programs.identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a', 'attribute float a;'), numjs.shaders.fragment(), "x");
 
-        self.programs.add = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a + b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
-        self.programs.sub = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a - b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
-        self.programs.mult = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a * b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
-        self.programs.div = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a / b', 'attribute float a; attribute float b;'), numjs.shaders.fragment(), "x");
+        self.programs.texture_identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.texture_expr_fragment("_(a, coord)", "_decl(a);"), "x");
 
-        self.programs.sum = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.vertex('a[0] + a[1] + a[2] + a[3]', 'attribute vec4 a;'), numjs.shaders.fragment(), "x");
-
-//        self.programs.texture_identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.texture_identity_fragment(), "x");
-
-        self.programs.texture_identity = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.texture_expr_fragment("_(a, coord)", "uniform sampler2D a; uniform vec2 a_size;"), "x");
+        self.programs.add = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.texture_expr_fragment("_(a, coord) + _(b, coord)", "_decl(a); _decl(b);"), "x");
+        self.programs.sub = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.texture_expr_fragment("_(a, coord) - _(b, coord)", "_decl(a); _decl(b);"), "x");
+        self.programs.mult = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.texture_expr_fragment("_(a, coord) * _(b, coord)", "_decl(a); _decl(b);"), "x");
+        self.programs.div = numjs.WebGl.createShaderProgramFromSource(self.gl, numjs.shaders.range_vertex(), numjs.shaders.texture_expr_fragment("_(a, coord) / _(b, coord)", "_decl(a); _decl(b);"), "x");
       };
 
       numjs.Context.prototype.createValue = function (value, args) {
@@ -416,7 +350,7 @@
         self.usage = 1;
         self.args = args || {};
 
-        if (value.constructor = Float32Array) {
+        if (value.constructor == Float32Array) {
           value = value.buffer;
         }
         if (value.constructor == WebGLTexture) {
@@ -492,10 +426,10 @@
         program.gl.uniform1f(program.uniforms.height, self.canvas.height);
         self.gl.clear(self.gl.COLOR_BUFFER_BIT);
 
-        if (outputTexture == undefined) {
+        if (outputTexture == false) {
           self.gl.bindFramebuffer(self.gl.FRAMEBUFFER,null);
         } else {
-          if (outputTexture == true) {
+          if (outputTexture == undefined) {
             outputTexture = self.gl.createTexture();
           }
           if (self.framebuffer == undefined) {
@@ -510,112 +444,69 @@
         program.disableArrays();
         program.resetTextures();
 
-        if (outputTexture == undefined) {
+        if (outputTexture == false) {
           var pixels = new Uint8Array(4 * width * height);
           self.gl.readPixels(0, 0, width, height, self.gl.RGBA, self.gl.UNSIGNED_BYTE, pixels);
           return new Float32Array(pixels.buffer);
         } else {
-          return outputTexture;
+          return self.createValue(outputTexture, {size: [width, height]});
         }
       };
 
-
-      numjs.Context.prototype.setOutput = function (name, width, height, outputTexture) {
+      numjs.Context.prototype.range = function (length, outputTexture) {
         var self = this;
-        var program = self.programs[name];
-        self.canvas.width = width;
-        self.canvas.height = height;
-        self.gl.useProgram(program);
-        self.gl.viewport(0, 0, self.canvas.width, self.canvas.height);
-        program.gl.uniform1f(program.uniforms.width, self.canvas.width);
-        program.gl.uniform1f(program.uniforms.height, self.canvas.height);
-        self.gl.clear(self.gl.COLOR_BUFFER_BIT);
 
-        if (outputTexture == undefined) {
-          self.gl.bindFramebuffer(self.gl.FRAMEBUFFER,null);
-        } else {
-          if (self.framebuffer == undefined) {
-            self.framebuffer = self.gl.createFramebuffer();
-          }
-          self.gl.bindFramebuffer(self.gl.FRAMEBUFFER, self.framebuffer);
-          self.gl.framebufferTexture2D(self.gl.FRAMEBUFFER, self.gl.COLOR_ATTACHMENT0, self.gl.TEXTURE_2D, outputTexture, 0);
-        }
-        return program;
+        return self.render(
+          "range",
+          function (program) { 
+            var x = new Float32Array(2);
+            var y = new Float32Array(2);
+
+            x[0] = 0;
+            y[0] = 0;
+            x[1] = length;
+            y[1] = 0;
+
+            program.loadArray("x", x, 1,  self.gl.FLOAT);
+            program.loadArray("y", y, 1,  self.gl.FLOAT);
+
+            self.gl.drawArrays(self.gl.LINES, 0, 2);
+
+            program.disableArrays(program);
+          }, length, 1, outputTexture);
       };
-      numjs.Context.prototype.getOutput = function(x, y, w, h) {
-        var self = this;
-        var width = w || self.canvas.width;
-        var height = h || self.canvas.height;
-        var pixels = new Uint8Array(4 * width * height);
-        self.gl.readPixels(x || 0, y || 0, width, height, self.gl.RGBA, self.gl.UNSIGNED_BYTE, pixels);
-        return new Float32Array(pixels.buffer);
-      }
-      numjs.Context.prototype.range = function (length) {
-        var self = this;
 
-        var program = self.setOutput("range", length, 1);
+      numjs.Context.prototype.itemwizeOp = function (name) {
+        return function(outputTexture, args) {
+          var self = this;
+          args = Array.prototype.slice.call(arguments, 1);
+          var argnames = ["a", "b", "c", "d", "e"];
 
-        var x = new Float32Array(2);
-        var y = new Float32Array(2);
+          return self.render(name, function (program) {
+            for (var i = 0; i < args.length; i++) {
+              args[i].bind(program, argnames[i]);
+            }
 
-        x[0] = 0;
-        y[0] = 0;
-        x[1] = length;
-        y[1] = 0;
+            var x = new Float32Array(2);
+            var y = new Float32Array(2);
 
-        program.loadArray("x", x, 1,  self.gl.FLOAT);
-        program.loadArray("y", y, 1,  self.gl.FLOAT);
+            x[0] = 0;
+            y[0] = 0;
+            x[1] = value.args.size[0];
+            y[1] = 0;
 
-        self.gl.drawArrays(self.gl.LINES, 0, 2);
+            program.loadArray("x", x, 1,  self.gl.FLOAT);
+            program.loadArray("y", y, 1,  self.gl.FLOAT);
 
-        program.disableArrays(program);
-
-        return self.getOutput(0, 0, length, 1);
-      }
-
-      numjs.Context.prototype.itemwizeOp = function(name, args) {
-        var self = this;
-        args = Array.prototype.slice.call(arguments, 1);
-        var length = args[0].length;
-
-        var x = self.range(length);
-        var y = new Float32Array(length); // 0:oes
-
-        var program = self.setOutput(name, length, 1);
-        var argnames = Object.keys(program.attributes).filter(function (key) { return key != 'x' && key != 'y'; });
-
-        program.loadArray("x", x, 1,  self.gl.FLOAT);
-        program.loadArray("y", y, 1,  self.gl.FLOAT);
-
-        for (var i = 0; i < args.length; i++) {
-          program.loadArray(argnames[i], args[i], 1,  self.gl.FLOAT);
+            self.gl.drawArrays(self.gl.LINES, 0, 2);
+          }, args[0].args.size[0], 1, outputTexture);
         }
-        self.gl.drawArrays(self.gl.POINTS, 0, length);
-
-        program.disableArrays();
-
-        return self.getOutput();
       }
-      numjs.Context.prototype.identity = function() {
-        var self = this;
-        return self.itemwizeOp.apply(self, ['identity'].concat([].slice.call(arguments)));
-      }
-      numjs.Context.prototype.add = function() {
-        var self = this;
-        return self.itemwizeOp.apply(self, ['add'].concat([].slice.call(arguments)));
-      }
-      numjs.Context.prototype.sub = function() {
-        var self = this;
-        return self.itemwizeOp.apply(self, ['sub'].concat([].slice.call(arguments)));
-      }
-      numjs.Context.prototype.mult = function() {
-        var self = this;
-        return self.itemwizeOp.apply(self, ['mult'].concat([].slice.call(arguments)));
-      }
-      numjs.Context.prototype.div = function() {
-        var self = this;
-        return self.itemwizeOp.apply(self, ['div'].concat([].slice.call(arguments)));
-      }
+      numjs.Context.prototype.identity = numjs.Context.prototype.itemwizeOp('identity');
+      numjs.Context.prototype.add = numjs.Context.prototype.itemwizeOp('add');
+      numjs.Context.prototype.sub = numjs.Context.prototype.itemwizeOp('sub');
+      numjs.Context.prototype.mult = numjs.Context.prototype.itemwizeOp('mult');
+      numjs.Context.prototype.div = numjs.Context.prototype.itemwizeOp('div');
 
       numjs.Context.prototype.sum = function(a) {
         var self = this;
@@ -692,7 +583,9 @@
 
         document.body.appendChild(ctx.canvas);
 
-        print ("texture_identity(range(5)) = " + ctx.texture_identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]))));
+        print("range(8) = " + ctx.range(8, false));
+
+        print ("texture_identity(range(5)) = " + ctx.texture_identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4])), false));
 
 /*
         print("range(8) = " + ctx.range(8));
