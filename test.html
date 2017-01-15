@@ -221,7 +221,7 @@
               mod(exp, 2.0) * 128.0 + frac[0],
               frac[1],
               frac[2]
-            ) / 255.;
+            ) / 256.;
 
             ${handleLittleEndian}
 
@@ -242,7 +242,7 @@
           float color2float(vec4 value) {
             ${handleLittleEndian}
 
-            value = value * 255.;
+            value = floor(value * 256.);
 
             float sign = floor(value[0] / 128.0) == 1. ? -1. : 1.;
             float exp = mod(value[0], 128.0) * 2.0 + floor(value[1] / 128.0);
