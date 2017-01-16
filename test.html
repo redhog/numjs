@@ -221,7 +221,7 @@
               mod(exp, 2.0) * 128.0 + frac[0],
               frac[1],
               frac[2]
-            ) / 256.;
+            ) / 255.;
 
             ${handleLittleEndian}
 
@@ -242,7 +242,7 @@
           float color2float(vec4 value) {
             ${handleLittleEndian}
 
-            value = floor(value * 256.);
+            value = floor(value * 256.); // Hack needed to handle precision errors, and round(value*255) not being available in GLSL ES
 
             float sign = floor(value[0] / 128.0) == 1. ? -1. : 1.;
             float exp = mod(value[0], 128.0) * 2.0 + floor(value[1] / 128.0);
@@ -492,7 +492,7 @@
 
             x[0] = 0;
             y[0] = 0;
-            x[1] = value.args.size[0];
+            x[1] = args[0].args.size[0];
             y[1] = 0;
 
             program.loadArray("x", x, 1,  self.gl.FLOAT);
@@ -583,11 +583,16 @@
 
         document.body.appendChild(ctx.canvas);
 
+//        print ("texture_identity([0, 1, 2, 3, 4])) = " + ctx.texture_identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4])), false));
+        print ("texture_identity(texture_identity([0, 1, 2, 3, 4]))) = " + ctx.texture_identity(ctx.texture_identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]))), false));
+
+/*
+
         print("range(8) = " + ctx.range(8, false));
+        print("add(range(8), range(8)) = " + ctx.add(false, ctx.range(8), ctx.range(8)));
 
         print ("texture_identity(range(5)) = " + ctx.texture_identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4])), false));
 
-/*
         print("range(8) = " + ctx.range(8));
         print("sum(range(8)) = " + ctx.sum(ctx.range(100)));
         print("range(5) = " + ctx.range(5));
