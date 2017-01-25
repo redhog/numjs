@@ -84,6 +84,8 @@ define([
 
     drawFn(program);
 
+    self.gl.bindFramebuffer(self.gl.FRAMEBUFFER, null);
+
     program.disableArrays();
     program.resetTextures();
 
