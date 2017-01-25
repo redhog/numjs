@@ -29,7 +29,7 @@ define([
   };
 
 
-  Context.prototype.texture_identity = function (value, outputTexture) {
+  Context.prototype.texture_identity = function (value, outputValue) {
     var self = this;
 
     return self.render("texture_identity", function (program) {
@@ -47,10 +47,28 @@ define([
       program.loadArray("y", y, 1,  self.gl.FLOAT);
 
       self.gl.drawArrays(self.gl.LINES, 0, 2);
-    }, value.args.size[0], 1, outputTexture);
+    }, value.args.size[0], 1, outputValue);
   };
 
-  Context.prototype.render = function (name, drawFn, width, height, outputTexture) {
+  Context.prototype.getTextureFramebuffer = function () {
+    var self = this;
+    var gl = self.gl;
+    if (self.textureFramebuffer == undefined) {
+      self.textureFramebuffer = gl.createFramebuffer();
+    }
+    return self.textureFramebuffer;
+  };
+
+  Context.prototype.getRenderbuffer = function () {
+    var self = this;
+    var gl = self.gl;
+    if (self.defaultRnderBuffer == undefined) {
+      self.defaultRnderBuffer = gl.createRenderbuffer();
+    }
+    return self.defaultRnderBuffer;
+  };
+
+  Context.prototype.render = function (name, drawFn, width, height) {
     var self = this;
     var program = self.programs[name];
     self.canvas.width = width;
@@ -61,34 +79,18 @@ define([
     program.gl.uniform1f(program.uniforms.height, self.canvas.height);
     self.gl.clear(self.gl.COLOR_BUFFER_BIT);
 
-    if (outputTexture == false) {
-      self.gl.bindFramebuffer(self.gl.FRAMEBUFFER,null);
-    } else {
-      if (outputTexture == undefined) {
-        outputTexture = self.gl.createTexture();
-      }
-      if (self.framebuffer == undefined) {
-        self.framebuffer = self.gl.createFramebuffer();
-      }
-      self.gl.bindFramebuffer(self.gl.FRAMEBUFFER, self.framebuffer);
-      self.gl.framebufferTexture2D(self.gl.FRAMEBUFFER, self.gl.COLOR_ATTACHMENT0, self.gl.TEXTURE_2D, outputTexture, 0);
-    }
+    var outputValue = self.createValue(null, {size: [width, height]});
+    outputValue.bindFramebuffer();
 
     drawFn(program);
 
     program.disableArrays();
     program.resetTextures();
 
-    if (outputTexture == false) {
-      var pixels = new Uint8Array(4 * width * height);
-      self.gl.readPixels(0, 0, width, height, self.gl.RGBA, self.gl.UNSIGNED_BYTE, pixels);
-      return new Float32Array(pixels.buffer);
-    } else {
-      return self.createValue(outputTexture, {size: [width, height]});
-    }
+    return outputValue;
   };
 
-  Context.prototype.range = function (length, outputTexture) {
+  Context.prototype.range = function (length, outputValue) {
     var self = this;
 
     return self.render(
@@ -108,11 +110,11 @@ define([
         self.gl.drawArrays(self.gl.LINES, 0, 2);
 
         program.disableArrays(program);
-      }, length, 1, outputTexture);
+      }, length, 1, outputValue);
   };
 
   Context.prototype.itemwizeOp = function (name) {
-    return function(outputTexture, args) {
+    return function(outputValue, args) {
       var self = this;
       args = Array.prototype.slice.call(arguments, 1);
       var argnames = ["a", "b", "c", "d", "e"];
@@ -134,7 +136,7 @@ define([
         program.loadArray("y", y, 1,  self.gl.FLOAT);
 
         self.gl.drawArrays(self.gl.LINES, 0, 2);
-      }, args[0].args.size[0], 1, outputTexture);
+      }, args[0].args.size[0], 1, outputValue);
     }
   }
   Context.prototype.identity = Context.prototype.itemwizeOp('identity');

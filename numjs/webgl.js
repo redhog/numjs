@@ -155,6 +155,22 @@ define([
       } else {
         throw new Error("Broken typed array implementation detected");
       }
+    },
+
+    framebufferStatusName2description: {
+      FRAMEBUFFER_COMPLETE: "The frame buffer is ready to display.",
+      FRAMEBUFFER_INCOMPLETE_ATTACHMENT: "The attachment types are mismatched.",
+      FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT: "There is no attachment.",
+      FRAMEBUFFER_INCOMPLETE_DIMENSIONS: "The height and width of the attachments are not the same.",
+      FRAMEBUFFER_UNSUPPORTED: "The attachments aren't supported."
+    },
+
+    framebufferStatus2Name: function (gl, status) {
+      var valueMapping = {};
+      Object.keys(webgl.framebufferStatusName2description).map(function (key) {
+        valueMapping[gl[key]] = {name:key, description: webgl.framebufferStatusName2description[key], toString: function () { return this.name + ": " + this.description; }};
+      });
+      return valueMapping[status];
     }
   };
 
