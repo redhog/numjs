@@ -17,8 +17,9 @@ define([
     self.programs.range = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.range_fragment(), "x");
 
     self.programs.texture_identity = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord)", "_decl(a);"), "x");
+    self.programs.add = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord)", "_decl(a); _decl(b);"), "x");
 
-    self.programs.add = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord) + _(b, coord)", "_decl(a); _decl(b);"), "x");
+//    self.programs.add = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord) + _(b, coord)", "_decl(a); _decl(b);"), "x");
     self.programs.sub = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord) - _(b, coord)", "_decl(a); _decl(b);"), "x");
     self.programs.mult = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord) * _(b, coord)", "_decl(a); _decl(b);"), "x");
     self.programs.div = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord) / _(b, coord)", "_decl(a); _decl(b);"), "x");
@@ -50,24 +51,6 @@ define([
     }, value.args.size[0], 1, outputValue);
   };
 
-  Context.prototype.getTextureFramebuffer = function () {
-    var self = this;
-    var gl = self.gl;
-    if (self.textureFramebuffer == undefined) {
-      self.textureFramebuffer = gl.createFramebuffer();
-    }
-    return self.textureFramebuffer;
-  };
-
-  Context.prototype.getRenderbuffer = function () {
-    var self = this;
-    var gl = self.gl;
-    if (self.defaultRnderBuffer == undefined) {
-      self.defaultRnderBuffer = gl.createRenderbuffer();
-    }
-    return self.defaultRnderBuffer;
-  };
-
   Context.prototype.render = function (name, drawFn, width, height) {
     var self = this;
     var program = self.programs[name];
@@ -80,11 +63,12 @@ define([
     self.gl.clear(self.gl.COLOR_BUFFER_BIT);
 
     var outputValue = self.createValue(null, {size: [width, height]});
-    outputValue.bindFramebuffer();
+    var framebuffer = outputValue.makeFramebuffer();
 
     drawFn(program);
 
     self.gl.bindFramebuffer(self.gl.FRAMEBUFFER, null);
+    self.gl.deleteFramebuffer(framebuffer);
 
     program.disableArrays();
     program.resetTextures();

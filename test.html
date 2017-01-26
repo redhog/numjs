@@ -50,6 +50,16 @@
           print("val2 = ID(val1) = " + val2.toFloat32Array());
           print("val3 = ID(val2) = " + val3.toFloat32Array());
 
+          print("range(5) = " + ctx.range(5).toFloat32Array());
+var a = ctx.range(5);
+var b = ctx.range(5);
+          print("a = " + a.toFloat32Array());
+          print("b = " + b.toFloat32Array());
+
+          print("add(a,b) = " + ctx.add(a, b).toFloat32Array());
+          print("a = " + a.toFloat32Array());
+          print("b = " + b.toFloat32Array());
+
 
 //          print("ID(x).toArray() = " + ctx.texture_identity(x).toFloat32Array());
 

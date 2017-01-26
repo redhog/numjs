@@ -58,30 +58,32 @@ define([
       program.bindUniform(name + "_" + attr, self.args[attr]);
     }
   };
-  Value.prototype.bindFramebuffer = function() {
+  Value.prototype.makeFramebuffer = function() {
     var self = this;
     var ctx = self.ctx;
     var gl = ctx.gl;
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, ctx.getTextureFramebuffer());
-
-    gl.bindRenderbuffer(gl.RENDERBUFFER, ctx.getRenderbuffer());
-    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, self.args.size[0], self.args.size[1]);
+    var framebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, self.value, 0);
     var status = webgl.framebufferStatus2Name(gl, gl.checkFramebufferStatus(gl.FRAMEBUFFER));
     if (status.name != 'FRAMEBUFFER_COMPLETE') {
       throw status;
     }
+    return framebuffer;
   };
   Value.prototype.toArrayBuffer = function (dereference) {
     var self = this;
     var ctx = self.ctx;
     var gl = ctx.gl;
     if (true || !self.buffer) {
-      self.bindFramebuffer();
+      framebuffer = self.makeFramebuffer();
       var pixels = new Uint8Array(4 * self.args.size[0] * self.args.size[1]);
       gl.readPixels(0, 0, self.args.size[0], self.args.size[1], gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(framebuffer);
+
       self.buffer = pixels.buffer;
     }
     var buffer = self.buffer;
