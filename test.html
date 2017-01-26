@@ -42,15 +42,18 @@
 //          print("ID(Value(Array())).toArray() = " + ctx.texture_identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]))).toFloat32Array());
 //          print("ID(Value(Array())).toArray() = " + ctx.texture_identity(ctx.createValue(Float32Array.from([1, 2, 3, 4, 5]))).toFloat32Array());
 
-          var val1 = ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]));
-          var val2 = ctx.texture_identity(val1.reference());
-          var val3 = ctx.texture_identity(val2.reference());
+          // var val1 = ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]));
+          // var val2 = ctx.texture_identity(val1.reference());
+          // var val3 = ctx.texture_identity(val2.reference());
 
-          print("val1 = Value(Array()) = " + val1.toFloat32Array());
-          print("val2 = ID(val1) = " + val2.toFloat32Array());
-          print("val3 = ID(val2) = " + val3.toFloat32Array());
+          // print("val1 = Value(Array()) = " + val1.toFloat32Array());
+          // print("val2 = ID(val1) = " + val2.toFloat32Array());
+          // print("val3 = ID(val2) = " + val3.toFloat32Array());
 
-          print("range(5) = " + ctx.range(5).toFloat32Array());
+          // print("range(5) = " + ctx.range(5).toFloat32Array());
+
+// var a = ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]));
+// var b = ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]));
 var a = ctx.range(5);
 var b = ctx.range(5);
           print("a = " + a.toFloat32Array());

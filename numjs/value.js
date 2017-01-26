@@ -58,7 +58,7 @@ define([
       program.bindUniform(name + "_" + attr, self.args[attr]);
     }
   };
-  Value.prototype.makeFramebuffer = function() {
+  Value.prototype.withFramebuffer = function(fn) {
     var self = this;
     var ctx = self.ctx;
     var gl = ctx.gl;
@@ -71,20 +71,24 @@ define([
     if (status.name != 'FRAMEBUFFER_COMPLETE') {
       throw status;
     }
-    return framebuffer;
+
+    var res = fn(framebuffer);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(framebuffer);
+
+    return res;
   };
   Value.prototype.toArrayBuffer = function (dereference) {
     var self = this;
     var ctx = self.ctx;
     var gl = ctx.gl;
     if (true || !self.buffer) {
-      framebuffer = self.makeFramebuffer();
-      var pixels = new Uint8Array(4 * self.args.size[0] * self.args.size[1]);
-      gl.readPixels(0, 0, self.args.size[0], self.args.size[1], gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.deleteFramebuffer(framebuffer);
-
-      self.buffer = pixels.buffer;
+      self.withFramebuffer(function (framebuffer) {
+        var pixels = new Uint8Array(4 * self.args.size[0] * self.args.size[1]);
+        gl.readPixels(0, 0, self.args.size[0], self.args.size[1], gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        self.buffer = pixels.buffer;
+      });
     }
     var buffer = self.buffer;
     if (dereference) {
