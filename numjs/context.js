@@ -16,7 +16,7 @@ define([
     self.programs = {};
     self.programs.range = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.range_fragment(), "x");
 
-    self.programs.texture_identity = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord)", "_decl(a);"), "x");
+    self.programs.identity  = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord)", "_decl(a);"), "x");
     self.programs.add = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord) + _(b, coord)", "_decl(a); _decl(b);"), "x");
     self.programs.sub = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord) - _(b, coord)", "_decl(a); _decl(b);"), "x");
     self.programs.mult = webgl.createShaderProgramFromSource(self.gl, shaders.range_vertex(), shaders.texture_expr_fragment("_(a, coord) * _(b, coord)", "_decl(a); _decl(b);"), "x");
@@ -25,28 +25,6 @@ define([
 
   Context.prototype.createValue = function (value, args) {
     return new Value(this, value, args);
-  };
-
-
-  Context.prototype.texture_identity = function (value) {
-    var self = this;
-
-    return self.render("texture_identity", function (program) {
-      value.bind(program, "a");
-
-      var x = new Float32Array(2);
-      var y = new Float32Array(2);
-
-      x[0] = 0;
-      y[0] = 0;
-      x[1] = value.args.size[0];
-      y[1] = 0;
-
-      program.loadArray("x", x, 1,  self.gl.FLOAT);
-      program.loadArray("y", y, 1,  self.gl.FLOAT);
-
-      self.gl.drawArrays(self.gl.LINES, 0, 2);
-    }, value.args.size[0], 1);
   };
 
   Context.prototype.render = function (name, drawFn, width, height) {

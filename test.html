@@ -38,47 +38,16 @@
           ctx = new Context();
 
           document.body.appendChild(ctx.canvas);
-//          print("Value(Array()).toArray() = " + ctx.createValue(Float32Array.from([0, 1, 2, 3, 4])).toFloat32Array());
-//          print("ID(Value(Array())).toArray() = " + ctx.texture_identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]))).toFloat32Array());
-//          print("ID(Value(Array())).toArray() = " + ctx.texture_identity(ctx.createValue(Float32Array.from([1, 2, 3, 4, 5]))).toFloat32Array());
 
-          // var val1 = ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]));
-          // var val2 = ctx.texture_identity(val1.reference());
-          // var val3 = ctx.texture_identity(val2.reference());
+          print("Value(Array()).toArray() = " + ctx.createValue(Float32Array.from([0, 1, 2, 3, 4])).toFloat32Array());
+          print("ID(Value(Array())).toArray() = " + ctx.identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]))).toFloat32Array());
 
-          // print("val1 = Value(Array()) = " + val1.toFloat32Array());
-          // print("val2 = ID(val1) = " + val2.toFloat32Array());
-          // print("val3 = ID(val2) = " + val3.toFloat32Array());
-
-          // print("range(5) = " + ctx.range(5).toFloat32Array());
-
-// var a = ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]));
-// var b = ctx.createValue(Float32Array.from([0, 1, 2, 3, 4]));
-var a = ctx.range(5);
-var b = ctx.range(5);
-          print("a = " + a.toFloat32Array());
-          print("b = " + b.toFloat32Array());
-
-          print("add(a,b) = " + ctx.add(a, b).toFloat32Array());
-          print("a = " + a.toFloat32Array());
-          print("b = " + b.toFloat32Array());
-
-
-//          print("ID(x).toArray() = " + ctx.texture_identity(x).toFloat32Array());
-
-//          var val = ctx.texture_identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4])));
-//          print ("texture_identity(texture_identity([0, 1, 2, 3, 4]))) = " + ctx.texture_identity(val, false).toFloat32Array());
-
-
-
-  //        print ("texture_identity([0, 1, 2, 3, 4])) = " + ctx.texture_identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4])), false));
+          print("range(5) = " + ctx.range(5).toFloat32Array());
+          print("add(range(5), range(5)) = " + ctx.add(ctx.range(5), ctx.range(5)).toFloat32Array());
 
   /*
 
-          print("range(8) = " + ctx.range(8, false));
-          print("add(range(8), range(8)) = " + ctx.add(false, ctx.range(8), ctx.range(8)));
-
-          print ("texture_identity(range(5)) = " + ctx.texture_identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4])), false));
+          print ("identity(range(5)) = " + ctx.identity(ctx.createValue(Float32Array.from([0, 1, 2, 3, 4])), false));
 
           print("range(8) = " + ctx.range(8));
           print("sum(range(8)) = " + ctx.sum(ctx.range(100)));
