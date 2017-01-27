@@ -23,7 +23,7 @@ define([
         var length = value.byteLength / 4;
         self.buffer = value;
         if (!self.args.size) { 
-          self.args.size = Float32Array.from([length, 1]);
+          self.args.size = [length, 1];
         }
         value = new Uint8Array(value);
       } else {
@@ -55,7 +55,11 @@ define([
     var self = this;
     program.bindTexture(name, self.value);
     for (var attr in self.args) {
-      program.bindUniform(name + "_" + attr, self.args[attr]);
+      var value = self.args[attr];
+      if (typeof(value) == "object" && value.constructor == Array) {
+        value = Float32Array.from(value);
+      }
+      program.bindUniform(name + "_" + attr, value);
     }
   };
   Value.prototype.withFramebuffer = function(fn) {
